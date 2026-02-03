@@ -1,0 +1,422 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "A.E.G.I.S. Decision Service API",
+    "description": "\n    Automated Escalation & Governance Intelligence System - Decision Service\n\n    This API provides AI-powered incident analysis using IBM watsonx.ai Granite models.\n    It evaluates incidents and returns structured decisions with confidence scores for\n    watsonx Orchestrate to route appropriately.\n\n    **Key Features:**\n    - Incident analysis using Granite AI models\n    - Confidence-based decision making\n    - Runbook context integration (local + optional Langflow)\n    - Safe escalation to human reviewers\n    - Strict JSON contracts for enterprise orchestration\n\n    **Decision Logic:**\n    - If confidence_score >= 80: Safe for auto-execution\n    - If confidence_score < 80: Escalate to human reviewer\n\n    **Critical for watsonx Orchestrate:** The confidence_score field enables\n    conditional branching in your orchestration workflow.\n    ",
+    "contact": {
+      "name": "A.E.G.I.S. Team",
+      "email": "aegis@example.com"
+    },
+    "version": "2.0.0"
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Root endpoint",
+        "description": "Returns basic service information",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Root  Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "description": "Returns service health status",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/version": {
+      "get": {
+        "summary": "Version information",
+        "description": "Returns service version and configuration",
+        "operationId": "version_version_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/evaluate-incident": {
+      "post": {
+        "summary": "Evaluate Incident",
+        "description": "Analyzes an incident report and returns a structured decision recommendation.\n\n    The service uses IBM watsonx.ai Granite models to:\n    - Analyze the incident context\n    - Determine appropriate action\n    - Calculate confidence score\n    - Provide explanation for the decision\n\n    **Decision Logic:**\n    - If confidence_score >= 80: Safe for auto-execution\n    - If confidence_score < 80: Escalate to human reviewer\n\n    **Critical for watsonx Orchestrate:** The confidence_score field enables\n    conditional branching in your orchestration workflow.",
+        "operationId": "evaluate_incident_evaluate_incident_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Incident successfully evaluated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentResponse"
+                },
+                "examples": {
+                  "auto_execute": {
+                    "summary": "High Confidence - Auto Execute",
+                    "value": {
+                      "analysis": "Disk space critically low due to failed log rotation",
+                      "recommended_action": "clear_logs",
+                      "confidence_score": 95,
+                      "explanation": "Clear cause with standard remediation. Safe to auto-execute.",
+                      "runbook_context": "Storage runbook context...",
+                      "trace_id": "123e4567-e89b-12d3-a456-426614174000",
+                      "model_id": "ibm/granite-3-8b-instruct",
+                      "policy": {
+                        "auto_execute_threshold": 80,
+                        "escalate_threshold": 80
+                      }
+                    }
+                  },
+                  "escalate": {
+                    "summary": "Low Confidence - Escalate",
+                    "value": {
+                      "analysis": "Authentication failures with unclear root cause",
+                      "recommended_action": "escalate_to_human",
+                      "confidence_score": 45,
+                      "explanation": "Intermittent failures require human investigation.",
+                      "runbook_context": "Auth runbook context...",
+                      "trace_id": "123e4567-e89b-12d3-a456-426614174001",
+                      "model_id": "ibm/granite-3-8b-instruct",
+                      "policy": {
+                        "auto_execute_threshold": 80,
+                        "escalate_threshold": 80
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid input"
+          },
+          "500": {
+            "description": "Server error - returns safe escalation response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DecisionPolicy": {
+        "properties": {
+          "auto_execute_threshold": {
+            "type": "integer",
+            "title": "Auto Execute Threshold",
+            "description": "Minimum confidence score for auto-execution",
+            "default": 80
+          },
+          "escalate_threshold": {
+            "type": "integer",
+            "title": "Escalate Threshold",
+            "description": "Below this threshold, must escalate to human",
+            "default": 80
+          }
+        },
+        "type": "object",
+        "title": "DecisionPolicy",
+        "description": "Decision policy thresholds"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "degraded",
+              "error"
+            ],
+            "title": "Status",
+            "default": "ok"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "title": "HealthResponse",
+        "description": "Health check response"
+      },
+      "IncidentRequest": {
+        "properties": {
+          "incident_text": {
+            "type": "string",
+            "minLength": 10,
+            "title": "Incident Text",
+            "description": "Detailed description of the incident",
+            "examples": [
+              "High database latency detected. Query times increased from 50ms to 2000ms."
+            ]
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "latency",
+                  "storage",
+                  "auth",
+                  "unknown"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category",
+            "description": "Incident category for context retrieval",
+            "default": "unknown"
+          },
+          "reporter_role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "SRE",
+                  "Developer",
+                  "Manager",
+                  "Other"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reporter Role",
+            "description": "Role of the person reporting the incident",
+            "default": "Other"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context",
+            "description": "Additional context fields"
+          }
+        },
+        "type": "object",
+        "required": [
+          "incident_text"
+        ],
+        "title": "IncidentRequest",
+        "description": "Request model for incident evaluation"
+      },
+      "IncidentResponse": {
+        "properties": {
+          "analysis": {
+            "type": "string",
+            "title": "Analysis",
+            "description": "One-sentence summary of the incident",
+            "examples": [
+              "Database experiencing high latency due to unoptimized queries"
+            ]
+          },
+          "recommended_action": {
+            "type": "string",
+            "enum": [
+              "clear_logs",
+              "restart_service",
+              "run_diagnostics",
+              "escalate_to_human"
+            ],
+            "title": "Recommended Action",
+            "description": "Recommended action to take"
+          },
+          "confidence_score": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Confidence Score",
+            "description": "Confidence level (0-100). Use this for branching in watsonx Orchestrate"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation",
+            "description": "Brief explanation for human reviewer",
+            "examples": [
+              "Database latency suggests query optimization needed. Running diagnostics first."
+            ]
+          },
+          "runbook_context": {
+            "type": "string",
+            "title": "Runbook Context",
+            "description": "Runbook context used for analysis (may be empty)",
+            "default": ""
+          },
+          "trace_id": {
+            "type": "string",
+            "title": "Trace Id",
+            "description": "Unique trace ID for this request"
+          },
+          "model_id": {
+            "type": "string",
+            "title": "Model Id",
+            "description": "watsonx.ai model used for analysis"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/DecisionPolicy"
+          }
+        },
+        "type": "object",
+        "required": [
+          "analysis",
+          "recommended_action",
+          "confidence_score",
+          "explanation",
+          "trace_id",
+          "model_id"
+        ],
+        "title": "IncidentResponse",
+        "description": "Response model for incident evaluation\n\nThis is the strict JSON contract that watsonx Orchestrate relies on\nfor conditional branching."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VersionResponse": {
+        "properties": {
+          "service": {
+            "type": "string",
+            "title": "Service",
+            "default": "A.E.G.I.S. Decision Service"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "default": "2.0.0"
+          },
+          "model_id": {
+            "type": "string",
+            "title": "Model Id"
+          },
+          "watsonx_url": {
+            "type": "string",
+            "title": "Watsonx Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model_id",
+          "watsonx_url"
+        ],
+        "title": "VersionResponse",
+        "description": "Version information response"
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://your-aegis-service-url.codeengine.appdomain.cloud",
+      "description": "A.E.G.I.S. Decision Service - Production (IBM Cloud Code Engine)"
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+{
+  "incident_text": "Intermittent authentication failures reported by users. No clear pattern in logs. May be related to deployment 2 hours ago. Some users successful, others cannot login.",
+  "category": "auth"
+}

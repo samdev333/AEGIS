@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# Environment
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# Documentation (except runbooks)
+docs/
+*.md
+!runbooks/*.md
+
+# Tests
+tests/
+pytest.ini
+.pytest_cache/
+.coverage
+
+# Old files
+app.py
+openapi-spec.yaml
+
+# Scripts
+scripts/
+
+# Deployment
+deploy-*.sh
+test-scenarios.*
+Procfile
+runtime.txt

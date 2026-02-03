@@ -1,0 +1,328 @@
+openapi: 3.0.0
+info:
+  title: A.E.G.I.S. Decision Service API
+  description: |
+    Automated Escalation & Governance Intelligence System - Decision Service
+
+    This API provides AI-powered incident analysis using IBM watsonx.ai Granite models.
+    It evaluates incidents and returns structured decisions with confidence scores for
+    watsonx Orchestrate to route appropriately.
+
+    Key Features:
+    - Incident analysis using Granite AI models
+    - Confidence-based decision making
+    - Runbook context integration
+    - Safe escalation to human reviewers
+  version: 1.0.0
+  contact:
+    name: A.E.G.I.S. Team
+    email: aegis@example.com
+
+servers:
+  - url: https://your-code-engine-url.us-south.codeengine.appdomain.cloud
+    description: IBM Code Engine Deployment
+  - url: http://localhost:5000
+    description: Local Development
+
+tags:
+  - name: Incident Evaluation
+    description: Core incident analysis and decision making
+  - name: Health
+    description: Service health and connectivity
+
+paths:
+  /:
+    get:
+      summary: Health Check
+      description: Returns service status and available endpoints
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                    example: A.E.G.I.S. Decision Service
+                  status:
+                    type: string
+                    example: healthy
+                  version:
+                    type: string
+                    example: 1.0.0
+                  endpoints:
+                    type: array
+                    items:
+                      type: string
+
+  /evaluate-incident:
+    post:
+      summary: Evaluate Incident
+      description: |
+        Analyzes an incident report and returns a structured decision recommendation.
+
+        The service uses IBM watsonx.ai Granite models to:
+        - Analyze the incident context
+        - Determine appropriate action
+        - Calculate confidence score
+        - Provide explanation for the decision
+
+        **Decision Logic:**
+        - If confidence_score >= 80: Safe for auto-execution
+        - If confidence_score < 80: Escalate to human reviewer
+
+        **Critical for watsonx Orchestrate:** The confidence_score field enables
+        conditional branching in your orchestration workflow.
+      tags:
+        - Incident Evaluation
+      operationId: evaluateIncident
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - incident_text
+              properties:
+                incident_text:
+                  type: string
+                  description: Detailed description of the incident
+                  example: "High database latency detected. Average query time increased from 50ms to 2000ms over the last 30 minutes. Users experiencing slow page loads."
+                  minLength: 10
+                category:
+                  type: string
+                  description: Incident category for context retrieval
+                  enum:
+                    - latency
+                    - storage
+                    - auth
+                    - unknown
+                  default: unknown
+                  example: latency
+                runbook_context:
+                  type: string
+                  description: Optional pre-fetched runbook context (advanced usage)
+                  example: "- Check database connection pool\n- Review slow query log\n- Verify index usage"
+            examples:
+              high_confidence_example:
+                summary: High Confidence Incident (Auto-Execute)
+                value:
+                  incident_text: "Application logs show disk usage at 95%. Log rotation service failed. No active user sessions affected."
+                  category: "storage"
+              low_confidence_example:
+                summary: Low Confidence Incident (Escalate)
+                value:
+                  incident_text: "Multiple users reporting intermittent authentication failures. No clear pattern. Possibly related to recent deployment."
+                  category: "auth"
+      responses:
+        '200':
+          description: Incident successfully evaluated
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - analysis
+                  - recommended_action
+                  - confidence_score
+                  - explanation
+                  - status
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - success
+                    example: success
+                  analysis:
+                    type: string
+                    description: One-sentence summary of the incident
+                    example: "Database experiencing high latency due to unoptimized queries"
+                  recommended_action:
+                    type: string
+                    description: Recommended action to take
+                    enum:
+                      - clear_logs
+                      - restart_service
+                      - run_diagnostics
+                      - escalate_to_human
+                    example: run_diagnostics
+                  confidence_score:
+                    type: integer
+                    description: Confidence level (0-100). Use this for branching in watsonx Orchestrate
+                    minimum: 0
+                    maximum: 100
+                    example: 75
+                  explanation:
+                    type: string
+                    description: Brief explanation for human reviewer
+                    example: "Database latency suggests query optimization needed. Running diagnostics to identify slow queries before taking action."
+                  incident_text:
+                    type: string
+                    description: Original incident text (echoed back)
+                  category:
+                    type: string
+                    description: Incident category used
+              examples:
+                auto_execute_response:
+                  summary: High Confidence - Auto Execute
+                  value:
+                    status: success
+                    analysis: "Disk space critically low due to failed log rotation"
+                    recommended_action: "clear_logs"
+                    confidence_score: 95
+                    explanation: "Clear cause identified with standard remediation. Safe to auto-execute log cleanup."
+                    incident_text: "Application logs show disk usage at 95%. Log rotation service failed."
+                    category: "storage"
+                escalate_response:
+                  summary: Low Confidence - Escalate
+                  value:
+                    status: success
+                    analysis: "Authentication failures with unclear root cause"
+                    recommended_action: "escalate_to_human"
+                    confidence_score: 45
+                    explanation: "Intermittent auth failures require human investigation to determine if recent deployment is the cause."
+                    incident_text: "Multiple users reporting intermittent authentication failures."
+                    category: "auth"
+        '400':
+          description: Bad request - invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  status:
+                    type: string
+                    example: error
+              examples:
+                missing_incident_text:
+                  summary: Missing Required Field
+                  value:
+                    error: "incident_text is required and cannot be empty"
+                    status: "error"
+        '500':
+          description: Server error - system failure
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  status:
+                    type: string
+                    example: error
+                  analysis:
+                    type: string
+                  recommended_action:
+                    type: string
+                    enum:
+                      - escalate_to_human
+                  confidence_score:
+                    type: integer
+                    example: 0
+                  explanation:
+                    type: string
+              examples:
+                system_error:
+                  summary: System Error - Safe Fallback
+                  value:
+                    error: "Model inference failed"
+                    status: "error"
+                    analysis: "System error"
+                    recommended_action: "escalate_to_human"
+                    confidence_score: 0
+                    explanation: "An unexpected error occurred. Escalating to human for safety."
+
+  /test-connection:
+    get:
+      summary: Test watsonx.ai Connection
+      description: Verifies that the service can connect to IBM watsonx.ai
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Connection successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                  model:
+                    type: string
+                  test_response:
+                    type: string
+        '500':
+          description: Connection failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+
+components:
+  schemas:
+    IncidentRequest:
+      type: object
+      required:
+        - incident_text
+      properties:
+        incident_text:
+          type: string
+          minLength: 10
+        category:
+          type: string
+          enum:
+            - latency
+            - storage
+            - auth
+            - unknown
+        runbook_context:
+          type: string
+
+    DecisionResponse:
+      type: object
+      required:
+        - status
+        - analysis
+        - recommended_action
+        - confidence_score
+        - explanation
+      properties:
+        status:
+          type: string
+        analysis:
+          type: string
+        recommended_action:
+          type: string
+          enum:
+            - clear_logs
+            - restart_service
+            - run_diagnostics
+            - escalate_to_human
+        confidence_score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        explanation:
+          type: string
+        incident_text:
+          type: string
+        category:
+          type: string

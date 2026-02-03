@@ -1,0 +1,4 @@
+{
+  "incident_text": "Disk usage at 95%. Log rotation failed at 3 AM. No user impact. Standard log cleanup applies.",
+  "category": "storage"
+}
