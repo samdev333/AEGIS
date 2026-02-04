@@ -433,10 +433,4 @@ Built for IBM watsonx Dev Day Hackathon 2026
 
 ---
 
-## License
-
-MIT
-
----
-
 *"AI that knows when NOT to act" - Bringing governance to agentic AI*
